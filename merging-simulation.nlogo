@@ -1,6 +1,7 @@
 globals [
   selected-car   ; the currently selected car
   lanes          ; a list of the y coordinates of different lanes
+
 ]
 
 turtles-own [
@@ -8,6 +9,7 @@ turtles-own [
   top-speed     ; the maximum speed of the car (different for all cars)
   target-lane   ; the desired lane of the car
   patience      ; the driver's current level of patience
+
 ]
 
 to setup
@@ -19,6 +21,9 @@ to setup
   ask selected-car [ set color red ]
   reset-ticks
 end
+
+; ycor è la corsia, 1 sopra -1 sotto
+; xcor è la posizione di ogni car partendo da 0 sul bordo a sinistra (inizio corsie)
 
 to create-or-remove-cars
 
@@ -52,33 +57,99 @@ to-report free [ road-patches ] ; turtle procedure
   ]
 end
 
+;here I have to draw the merging between the two lanes
 to draw-road
   ask patches [
     ; the road is surrounded by green grass of varying shades
     set pcolor green - random-float 0.5
   ]
   set lanes n-values number-of-lanes [ n -> number-of-lanes - (n * 2) - 1 ]
-  ask patches with [ abs pycor <= number-of-lanes ] [
-    ; the road itself is varying shades of grey
-    set pcolor grey - 2.5 + random-float 0.25
-  ]
+  let n 0 - number-of-lanes
+  ask patches with [ abs pycor > n and abs pycor <= number-of-lanes ] [set pcolor grey - 2.5 + random-float 0.25]
+  ask patches with [  pycor >= 0 and abs pycor <= number-of-lanes and pxcor <= xcor-end-of-merging-lane ] [set pcolor grey - 2.5 + random-float 0.25]
+  ask patches with [  pycor < 0  and pxcor > xcor-end-of-merging-lane ] [set pcolor green - random-float 0.5]
+
   draw-road-lines
+
 end
+
+;to draw-road2
+;  ask patches [
+;    set pcolor green
+;    if ((pycor > -4) and (pycor < 4)) [ set pcolor gray ]
+;    if ((pycor = 0) and ((pxcor mod 3) = 0)) [ set pcolor yellow ]
+;    if ((pycor = 4) or (pycor = -4)) [ set pcolor black ]
+;  ]
+;  draw-merge
+;end
+;
+;to draw-merge
+;
+;  ask patches [
+;    if pycor < -3 [
+;      if ( pxcor < pycor + 7 ) and (pxcor > pycor - 1 ) [
+;        set pcolor black
+;      ]
+;    ]
+;    if pycor < -2 [
+;      if ( pxcor < pycor + 6 ) and (pxcor > pycor  ) [
+;        set pcolor gray
+;      ]
+;    ]
+;  ]
+
+;end
+;to draw-road-lines
+;  let y (last lanes) - 1 ; start below the "lowest" lane
+;  while [ y <= first lanes + 1 ] [
+;    if not member? y lanes [
+;      ; draw lines on road patches that are not part of a lane
+;      ifelse abs y = number-of-lanes
+;        [ draw-line y yellow 0 ]  ; yellow for the sides of the road
+;        [ draw-line y white 0.5 ] ; dashed white between lanes
+;    ]
+;    set y y + 1 ; move up one patch
+;  ]
+;end
 
 to draw-road-lines
   let y (last lanes) - 1 ; start below the "lowest" lane
   while [ y <= first lanes + 1 ] [
     if not member? y lanes [
-      ; draw lines on road patches that are not part of a lane
-      ifelse abs y = number-of-lanes
-        [ draw-line y yellow 0 ]  ; yellow for the sides of the road
-        [ draw-line y white 0.5 ] ; dashed white between lanes
+      if y = number-of-lanes         ; draw upper lane line
+        [ draw-line y yellow 0 1]
+      if  y = (0 - number-of-lanes)   ; draw lower lane line
+        [ draw-line y yellow 0 -2]
+      if y = 0                       ;draw middle lane lines
+        [ draw-line y white 0 0
+          draw-line y yellow 0 -1 ]
+
     ]
+
     set y y + 1 ; move up one patch
   ]
 end
 
-to draw-line [ y line-color gap ]
+;to draw-line [ y line-color gap ]
+;  ; We use a temporary turtle to draw the line:
+;  ; - with a gap of zero, we get a continuous line;
+;  ; - with a gap greater than zero, we get a dasshed line.
+;  create-turtles 1 [
+;    setxy (min-pxcor - 0.5) y
+;    hide-turtle
+;    set color line-color
+;    set heading 90
+;    repeat world-width [
+;      pen-up
+;      forward gap
+;      pen-down
+;      forward (1 - gap)
+;    ]
+;    die
+;  ]
+;end
+
+to draw-line [ y line-color gap kind ]  ; kind=1 upper lane, kind=0 and kind=-1 middle lanes, kind=-2 lower lane
   ; We use a temporary turtle to draw the line:
   ; - with a gap of zero, we get a continuous line;
   ; - with a gap greater than zero, we get a dasshed line.
@@ -87,14 +158,45 @@ to draw-line [ y line-color gap ]
     hide-turtle
     set color line-color
     set heading 90
-    repeat world-width [
-      pen-up
-      forward gap
-      pen-down
-      forward (1 - gap)
+    if kind = 1 [
+      repeat world-width [
+        pen-up
+        forward gap
+        pen-down
+        forward (1 - gap)
+      ]
+    ]
+    if kind = 0 [
+      repeat (xcor-end-of-merging-lane - 5) [
+        pen-up
+        forward gap
+        pen-down
+        forward (1 - gap)
+      ]
+     ]
+    if kind = -1 [
+      setxy (xcor-end-of-merging-lane) y
+      repeat (world-width - (xcor-end-of-merging-lane))  [
+        pen-up
+        forward gap
+        pen-down
+        forward (1 - gap)
+    ]
+      ;setxy (xcor-end-of-merging-lane) y
+      ;move-to (xcor-end-of-merging-lane) (number-of-lanes + 1)
+
+    ]
+    if kind = -2 [
+      repeat xcor-end-of-merging-lane [
+        pen-up
+        forward gap
+        pen-down
+        forward (1 - gap)
+      ]
     ]
     die
   ]
+
 end
 
 to go
@@ -189,15 +291,17 @@ to-report number-of-lanes
   ; name. 8 lanes is the maximum that currently fit in the view.
   report 2
 end
-
+to-report xcor-end-of-merging-lane
+  report 20
+end
 
 ; Copyright 1998 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-225
+220
 10
-1053
+1068
 359
 -1
 -1
@@ -209,10 +313,10 @@ GRAPHICS-WINDOW
 1
 0
 1
-0
 1
--20
-20
+1
+0
+41
 -8
 8
 1
