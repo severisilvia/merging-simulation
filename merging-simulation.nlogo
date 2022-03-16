@@ -1,21 +1,16 @@
 globals [
   selected-car   ; the currently selected car
   lanes          ; a list of the y coordinates of different lanes
-
-  tao   ;da aggiungere, vedi se serve ma non credo
-
+  ;tao   ;
 ]
 
 turtles-own [
-  speed         ; the current speed of the car 1 main, -1 secondary
+  speed         ; the current speed of the car
   top-speed     ; the maximum speed of the car (different for all cars)
-  target-lane   ; the desired lane of the car
+  target-lane   ; the desired lane of the car 1 main, -1 secondary
   patience      ; the driver's current level of patience
-
-
-
-  initial-speed ; da aggiungere
-  initial-position; da aggiungere
+  initial-speed
+  initial-position
 
 
   ;non ancora usato
@@ -27,6 +22,7 @@ turtles-own [
 to setup
   clear-all
   set-default-shape turtles "car"
+  ;set tao 1 ; in our case the temporal unit is 1
   draw-road
   create-or-remove-cars-main-lane
   create-or-remove-cars-second-lane
@@ -48,6 +44,8 @@ to create-or-remove-cars-main-lane
     set heading 90
     set top-speed 0.5 + random-float 0.5
     set speed 0.5
+    set initial-speed speed ; at the beginning speed and initial-speed are the same
+    set initial-position xcor
     ;set patience random max-patience
   ]
   if count turtles with [ycor = 1] > number-of-cars-main-lane [
@@ -69,6 +67,8 @@ to create-or-remove-cars-second-lane
     set heading 90
     set top-speed 0.5 + random-float 0.5
     set speed 0.5
+    set initial-speed speed ; at the beginning speed and initial-speed are the same
+    set initial-position xcor
     ;set patience random max-patience
   ]
   if count turtles with [ycor = -1] > number-of-cars-second-lane [
@@ -160,7 +160,7 @@ to go
   create-or-remove-cars-second-lane
   ask turtles [move-forward]
 
-  ask turtles with [ycor = -1] [choose-new-lane]
+  ;ask turtles with [ycor = -1] [choose-new-lane]
 
 
 ;  ask turtles [ move-forward ]
@@ -174,17 +174,19 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   let delta-x 0
   let forward-speed 0   ; information about speed of B
   let forward-position 0 ;information about position of B
-
-  let forward-cars other turtles in-cone (world-width - xcor - 1) 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
+  let n (world-width - xcor - 1)
+  if (n < 0)[ set n 0]
+  let forward-cars other turtles in-cone n 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
   let forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
 
   ifelse forward-car != Nobody
-  [ set delta-x (abs (xcor - [xcor] of forward-car)) ;save the distance between me and the forward car
+  [ set delta-x  (([xcor] of forward-car - xcor) - (size / 2 )) ;save the distance between me and the forward car -->
+                                                                ;Δxmin = δ + xsize where xsize is fixed vehicle size and δ is minimal safe tracking distance
     set forward-speed [speed] of forward-car
     set forward-position [xcor] of forward-car  ]
 
-  [ set delta-x world-width                     ;there isn't any forward-car
-    set forward-speed 0
+  [ set delta-x world-width - (size / 2)                     ;there isn't any forward-car
+    set forward-speed 10000
     set forward-position 0  ]    ;CAMBIA IN VALORI SENSATI
   print(word "I am " who " and my distance between the forward car " forward-car " is " delta-x)
   ;starting with the algorithm
@@ -195,7 +197,7 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   [ ifelse forward-speed > speed
     [ increase-speed
       update-position ]  ;non capisco se è uguale a prima, leggi bene algoritmo potrebbe essere diverso
-    [ifelse (equation < delta-x-min)
+    [ifelse (equation[self forward-car] < delta-x-min) ; correggi questo
       [decrease-speed
        update-position]
       [increase-speed
@@ -206,31 +208,24 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
 
 
 
-
-
-
-
-;  ifelse forward-car != Nobody
-;      [ set speed [ speed ] of forward-car        ; do this if I found the forward car
-;        slow-down-car
-;         forward speed
-;  ]
-;  [ ] ;do this if there isn't any forward car
-
-
-
 end
 
-;implemento equazioni (3) e (4)
-to-report equation
-  report 1
+to-report equation[A B]   ;refers to equation (9)
+  let one (((([initial-speed] of A )^ 2 - ([initial-speed] of B) ^ 2) / (2 * deceleration)) + (([initial-speed] of A - [initial-speed] of B) / 2))
+  let ris (one - [initial-position] of B + [initial-position] of A)
+  report ris
 end
-to increase-speed
+to increase-speed   ; refers to equation (3)
+  set speed (speed + acceleration)
+  if speed > top-speed [ set speed top-speed ]   ; top-speed??
 end
 
-to decrease-speed
+to decrease-speed ; refers to equation (3)
+  set speed (speed - deceleration)
+  if speed < 0 [ set speed deceleration ]
 end
-to update-position
+to update-position ;refers to equation (4)
+  forward speed
 end
 
 ;to move-forward ; turtle procedure --> implementation of the tracking algorithm
@@ -437,7 +432,7 @@ number-of-cars-main-lane
 number-of-cars-main-lane
 0
 world-width
-4.0
+7.0
 1
 1
 NIL
@@ -473,23 +468,8 @@ acceleration
 acceleration
 0.001
 0.01
-0.007
 0.001
-1
-NIL
-HORIZONTAL
-
-SLIDER
-10
-120
-215
-153
-deceleration
-deceleration
-0.01
-0.1
-0.05
-0.01
+0.001
 1
 NIL
 HORIZONTAL
@@ -605,6 +585,21 @@ number-of-cars-second-lane
 xcor-start-of-merging-lane
 3.0
 1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+120
+215
+153
+deceleration
+deceleration
+0.1
+0.1
+0.004
+0.01
 1
 NIL
 HORIZONTAL
