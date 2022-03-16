@@ -2,13 +2,25 @@ globals [
   selected-car   ; the currently selected car
   lanes          ; a list of the y coordinates of different lanes
 
+  tao   ;da aggiungere, vedi se serve ma non credo
+
 ]
 
 turtles-own [
-  speed         ; the current speed of the car
+  speed         ; the current speed of the car 1 main, -1 secondary
   top-speed     ; the maximum speed of the car (different for all cars)
   target-lane   ; the desired lane of the car
   patience      ; the driver's current level of patience
+
+
+
+  initial-speed ; da aggiungere
+  initial-position; da aggiungere
+
+
+  ;non ancora usato
+  zone          ; the zone of the lane: -1 self-zone 0 control-zone 1 critical-zone
+
 
 ]
 
@@ -16,36 +28,52 @@ to setup
   clear-all
   set-default-shape turtles "car"
   draw-road
-  create-or-remove-cars
+  create-or-remove-cars-main-lane
+  create-or-remove-cars-second-lane
   set selected-car one-of turtles
   ask selected-car [ set color red ]
   reset-ticks
 end
 
-; ycor è la corsia, 1 sopra -1 sotto
-; xcor è la posizione di ogni car partendo da 0 sul bordo a sinistra (inizio corsie)
-
-to create-or-remove-cars
-
-  ; make sure we don't have too many cars for the room we have on the road
-  let road-patches patches with [ member? pycor lanes ]
-  if number-of-cars > count road-patches [
-    set number-of-cars count road-patches
+to create-or-remove-cars-main-lane
+  let road-patches-main patches with [pycor = 1]
+  let road-patches-secondary patches with [pycor = -1 and pxcor <= xcor-start-of-merging-lane]
+  if number-of-cars-main-lane > count road-patches-main  [
+    set number-of-cars-main-lane count road-patches-main
   ]
-
-  create-turtles (number-of-cars - count turtles) [
+   create-turtles (number-of-cars-main-lane - count turtles with [ycor = 1]) [
     set color car-color
-    move-to one-of free road-patches
+    move-to one-of free road-patches-main
     set target-lane pycor
     set heading 90
     set top-speed 0.5 + random-float 0.5
     set speed 0.5
-    set patience random max-patience
+    ;set patience random max-patience
   ]
+  if count turtles with [ycor = 1] > number-of-cars-main-lane [
+    let n count turtles with [ycor = 1] - number-of-cars-main-lane
+    ask n-of n [ other turtles with [ycor = 1]] of selected-car [ die ]
+  ]
+end
 
-  if count turtles > number-of-cars [
-    let n count turtles - number-of-cars
-    ask n-of n [ other turtles ] of selected-car [ die ]
+to create-or-remove-cars-second-lane
+  let road-patches-main patches with [pycor = 1]
+  let road-patches-secondary patches with [pycor = -1 and pxcor <= xcor-start-of-merging-lane]
+  if number-of-cars-second-lane > count road-patches-secondary  [
+    set number-of-cars-second-lane  count road-patches-secondary
+  ]
+  create-turtles (number-of-cars-second-lane - count turtles with [ycor = -1]) [
+    set color car-color
+    move-to one-of free road-patches-secondary
+    set target-lane pycor
+    set heading 90
+    set top-speed 0.5 + random-float 0.5
+    set speed 0.5
+    ;set patience random max-patience
+  ]
+  if count turtles with [ycor = -1] > number-of-cars-second-lane [
+    let n count turtles with [ycor = -1] - number-of-cars-second-lane
+    ask n-of n [ other turtles with [ycor = -1]] of selected-car [ die ]
   ]
 
 end
@@ -61,68 +89,29 @@ end
 to draw-road
   ask patches [
     ; the road is surrounded by green grass of varying shades
-    set pcolor green - random-float 0.5
+    set pcolor pink + 2.5 - random-float 0.5
   ]
   set lanes n-values number-of-lanes [ n -> number-of-lanes - (n * 2) - 1 ]
   let n 0 - number-of-lanes
-  ask patches with [ abs pycor > n and abs pycor <= number-of-lanes ] [set pcolor grey - 2.5 + random-float 0.25]
-  ask patches with [  pycor >= 0 and abs pycor <= number-of-lanes and pxcor <= xcor-end-of-merging-lane ] [set pcolor grey - 2.5 + random-float 0.25]
-  ask patches with [  pycor < 0  and pxcor > xcor-end-of-merging-lane ] [set pcolor green - random-float 0.5]
+  ask patches with [ abs pycor > n and abs pycor <= number-of-lanes ] [set pcolor white - random-float 0.25]
+  ask patches with [  pycor >= 0 and abs pycor <= number-of-lanes and pxcor <= xcor-end-of-merging-lane ] [set pcolor white - random-float 0.25]
+  ask patches with [  pycor < 0  and pxcor > xcor-end-of-merging-lane ] [set pcolor pink + 2.5  - random-float 0.5]
 
   draw-road-lines
 
 end
 
-;to draw-road2
-;  ask patches [
-;    set pcolor green
-;    if ((pycor > -4) and (pycor < 4)) [ set pcolor gray ]
-;    if ((pycor = 0) and ((pxcor mod 3) = 0)) [ set pcolor yellow ]
-;    if ((pycor = 4) or (pycor = -4)) [ set pcolor black ]
-;  ]
-;  draw-merge
-;end
-;
-;to draw-merge
-;
-;  ask patches [
-;    if pycor < -3 [
-;      if ( pxcor < pycor + 7 ) and (pxcor > pycor - 1 ) [
-;        set pcolor black
-;      ]
-;    ]
-;    if pycor < -2 [
-;      if ( pxcor < pycor + 6 ) and (pxcor > pycor  ) [
-;        set pcolor gray
-;      ]
-;    ]
-;  ]
-
-;end
-;to draw-road-lines
-;  let y (last lanes) - 1 ; start below the "lowest" lane
-;  while [ y <= first lanes + 1 ] [
-;    if not member? y lanes [
-;      ; draw lines on road patches that are not part of a lane
-;      ifelse abs y = number-of-lanes
-;        [ draw-line y yellow 0 ]  ; yellow for the sides of the road
-;        [ draw-line y white 0.5 ] ; dashed white between lanes
-;    ]
-;    set y y + 1 ; move up one patch
-;  ]
-;end
-
 to draw-road-lines
   let y (last lanes) - 1 ; start below the "lowest" lane
   while [ y <= first lanes + 1 ] [
     if not member? y lanes [
+
       if y = number-of-lanes         ; draw upper lane line
-        [ draw-line y yellow 0 1]
+        [ draw-line y black 1]
       if  y = (0 - number-of-lanes)   ; draw lower lane line
-        [ draw-line y yellow 0 -2]
+        [ draw-line y black  -1]
       if y = 0                       ;draw middle lane lines
-        [ draw-line y white 0 0
-          draw-line y yellow 0 -1 ]
+        [ draw-line y black  0]      ;first horizontal middle line
 
     ]
 
@@ -130,26 +119,8 @@ to draw-road-lines
   ]
 end
 
-;to draw-line [ y line-color gap ]
-;  ; We use a temporary turtle to draw the line:
-;  ; - with a gap of zero, we get a continuous line;
-;  ; - with a gap greater than zero, we get a dasshed line.
-;  create-turtles 1 [
-;    setxy (min-pxcor - 0.5) y
-;    hide-turtle
-;    set color line-color
-;    set heading 90
-;    repeat world-width [
-;      pen-up
-;      forward gap
-;      pen-down
-;      forward (1 - gap)
-;    ]
-;    die
-;  ]
-;end
 
-to draw-line [ y line-color gap kind ]  ; kind=1 upper lane, kind=0 and kind=-1 middle lanes, kind=-2 lower lane
+to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 middle lanes, kind=-2 lower lane
   ; We use a temporary turtle to draw the line:
   ; - with a gap of zero, we get a continuous line;
   ; - with a gap greater than zero, we get a dasshed line.
@@ -158,41 +129,26 @@ to draw-line [ y line-color gap kind ]  ; kind=1 upper lane, kind=0 and kind=-1 
     hide-turtle
     set color line-color
     set heading 90
-    if kind = 1 [
-      repeat world-width [
-        pen-up
-        forward gap
-        pen-down
-        forward (1 - gap)
-      ]
-    ]
-    if kind = 0 [
-      repeat (xcor-end-of-merging-lane - 5) [
-        pen-up
-        forward gap
-        pen-down
-        forward (1 - gap)
-      ]
-     ]
-    if kind = -1 [
-      setxy (xcor-end-of-merging-lane) y
-      repeat (world-width - (xcor-end-of-merging-lane))  [
-        pen-up
-        forward gap
-        pen-down
-        forward (1 - gap)
-    ]
-      ;setxy (xcor-end-of-merging-lane) y
-      ;move-to (xcor-end-of-merging-lane) (number-of-lanes + 1)
 
+    if kind = 1 [                  ;upper  line
+      pen-down
+      forward world-width
+      pen-up
     ]
-    if kind = -2 [
-      repeat xcor-end-of-merging-lane [
-        pen-up
-        forward gap
-        pen-down
-        forward (1 - gap)
-      ]
+    if kind = 0 [                   ; first middle line
+      pen-down
+      forward xcor-start-of-merging-lane
+      pen-up
+     ]
+
+    if kind = -1 [                     ; lower lines both horizontals and vertical
+      pen-down
+      forward xcor-end-of-merging-lane
+      left 90
+      forward number-of-lanes
+      right 90
+      forward (world-width - xcor-end-of-merging-lane)
+      pen-up
     ]
     die
   ]
@@ -200,32 +156,100 @@ to draw-line [ y line-color gap kind ]  ; kind=1 upper lane, kind=0 and kind=-1 
 end
 
 to go
-  create-or-remove-cars
-  ask turtles [ move-forward ]
-  ask turtles with [ patience <= 0 ] [ choose-new-lane ]
-  ask turtles with [ ycor != target-lane ] [ move-to-target-lane ]
-  tick
+  create-or-remove-cars-main-lane
+  create-or-remove-cars-second-lane
+  ask turtles [move-forward]
+
+  ask turtles with [ycor = -1] [choose-new-lane]
+
+
+;  ask turtles [ move-forward ]
+;  ask turtles with [ patience <= 0 ] [ choose-new-lane ]
+;  ask turtles with [ ycor != target-lane ] [ move-to-target-lane ]
+;  tick
 end
 
-to move-forward ; turtle procedure
+to move-forward ; turtle procedure --> implementation of the tracking algorithm
   set heading 90
-  speed-up-car ; we tentatively speed up, but might have to slow down
-  let blocking-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
-  let blocking-car min-one-of blocking-cars [ distance myself ]
-  if blocking-car != nobody [
-    ; match the speed of the car ahead of you and then slow
-    ; down so you are driving a bit slower than that car.
-    set speed [ speed ] of blocking-car
-    slow-down-car
+  let delta-x 0
+  let forward-speed 0   ; information about speed of B
+  let forward-position 0 ;information about position of B
+
+  let forward-cars other turtles in-cone (world-width - xcor - 1) 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
+  let forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
+
+  ifelse forward-car != Nobody
+  [ set delta-x (abs (xcor - [xcor] of forward-car)) ;save the distance between me and the forward car
+    set forward-speed [speed] of forward-car
+    set forward-position [xcor] of forward-car  ]
+
+  [ set delta-x world-width                     ;there isn't any forward-car
+    set forward-speed 0
+    set forward-position 0  ]    ;CAMBIA IN VALORI SENSATI
+  print(word "I am " who " and my distance between the forward car " forward-car " is " delta-x)
+  ;starting with the algorithm
+
+  ifelse delta-x < delta-x-min
+  [ decrease-speed
+    update-position ]
+  [ ifelse forward-speed > speed
+    [ increase-speed
+      update-position ]  ;non capisco se è uguale a prima, leggi bene algoritmo potrebbe essere diverso
+    [ifelse (equation < delta-x-min)
+      [decrease-speed
+       update-position]
+      [increase-speed
+       update-position]
+
+    ]
   ]
-  forward speed
+
+
+
+
+
+
+
+;  ifelse forward-car != Nobody
+;      [ set speed [ speed ] of forward-car        ; do this if I found the forward car
+;        slow-down-car
+;         forward speed
+;  ]
+;  [ ] ;do this if there isn't any forward car
+
+
+
 end
+
+;implemento equazioni (3) e (4)
+to-report equation
+  report 1
+end
+to increase-speed
+end
+
+to decrease-speed
+end
+to update-position
+end
+
+;to move-forward ; turtle procedure --> implementation of the tracking algorithm
+;  set heading 90
+;
+;  let blocking-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
+;  let blocking-car min-one-of blocking-cars [ distance myself ]
+;  if blocking-car != nobody [
+;    ; match the speed of the car ahead of you and then slow
+;    ; down so you are driving a bit slower than that car.
+;    set speed [ speed ] of blocking-car
+;    slow-down-car
+;  ]
+;  forward speed
+;end
 
 to slow-down-car ; turtle procedure
   set speed (speed - deceleration)
   if speed < 0 [ set speed deceleration ]
-  ; every time you hit the brakes, you loose a little patience
-  set patience patience - 1
 end
 
 to speed-up-car ; turtle procedure
@@ -241,7 +265,7 @@ to choose-new-lane ; turtle procedure
     let min-dist min map [ y -> abs (y - ycor) ] other-lanes
     let closest-lanes filter [ y -> abs (y - ycor) = min-dist ] other-lanes
     set target-lane one-of closest-lanes
-    set patience max-patience
+    ;set patience max-patience
   ]
 end
 
@@ -286,17 +310,17 @@ to-report car-color
 end
 
 to-report number-of-lanes
-  ; To make the number of lanes easily adjustable, remove this
-  ; reporter and create a slider on the interface with the same
-  ; name. 8 lanes is the maximum that currently fit in the view.
   report 2
 end
 to-report xcor-end-of-merging-lane
-  report 20
+  report 30
 end
-
-; Copyright 1998 Uri Wilensky.
-; See Info tab for full copyright and license.
+to-report xcor-start-of-merging-lane
+  report (xcor-end-of-merging-lane - 5)
+end
+to-report delta-x-min
+  report 5
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 220
@@ -319,8 +343,8 @@ GRAPHICS-WINDOW
 41
 -8
 8
-1
-1
+0
+0
 1
 ticks
 30.0
@@ -407,13 +431,13 @@ mean [speed] of turtles
 SLIDER
 10
 50
-215
+110
 83
-number-of-cars
-number-of-cars
-1
-number-of-lanes * world-width
-40.0
+number-of-cars-main-lane
+number-of-cars-main-lane
+0
+world-width
+4.0
 1
 1
 NIL
@@ -449,7 +473,7 @@ acceleration
 acceleration
 0.001
 0.01
-0.005
+0.007
 0.001
 1
 NIL
@@ -464,7 +488,7 @@ deceleration
 deceleration
 0.01
 0.1
-0.02
+0.05
 0.01
 1
 NIL
@@ -571,15 +595,15 @@ true
 PENS
 
 SLIDER
-10
-155
+115
+50
 215
-188
-max-patience
-max-patience
-1
-100
-50.0
+83
+number-of-cars-second-lane
+number-of-cars-second-lane
+0
+xcor-start-of-merging-lane
+3.0
 1
 1
 NIL
