@@ -174,8 +174,10 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   let delta-x 0
   let forward-speed 0   ; information about speed of B
   let forward-position 0 ;information about position of B
-  let n (world-width - xcor - 1)
+  let n (world-width - xcor)
   if (n < 0)[ set n 0]
+  if debug [print(word "deltax min: " delta-x-min)]
+  if debug [print(word "in-cone radius " n)]
   let forward-cars other turtles in-cone n 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
   let forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
 
@@ -188,32 +190,38 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   [ set delta-x world-width - (size / 2)                     ;there isn't any forward-car
     set forward-speed 10000
     set forward-position 0  ]    ;CAMBIA IN VALORI SENSATI
-  print(word "I am " who " and my distance between the forward car " forward-car " is " delta-x)
+  if debug [print(word "I am " who " and my distance between the forward car " forward-car " is " delta-x)]
   ;starting with the algorithm
 
+;  if forward-car != Nobody[
   ifelse delta-x < delta-x-min
-  [ decrease-speed
+  [ if debug [print(word "turtle " who " decrease speed delta-x < delta-x-min")]
+    decrease-speed
     update-position ]
   [ ifelse forward-speed > speed
-    [ increase-speed
+    [ if debug [print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed > speed")]
+      increase-speed
       update-position ]  ;non capisco se è uguale a prima, leggi bene algoritmo potrebbe essere diverso
-    [ifelse (equation[self forward-car] < delta-x-min) ; correggi questo
-      [decrease-speed
+    [ifelse equation self forward-car < delta-x-min ; correggi questo
+      [ if debug [print(word "turtle " who " decrease speed because delta-x => delta-x-min but forward-speed <= speed and equation < delta-x-min ")]
+        decrease-speed
        update-position]
-      [increase-speed
+      [if debug [ print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed <= speed and equation >= delta-x-min")]
+       increase-speed
        update-position]
 
     ]
   ]
-
-
-
+;  ]
 end
 
-to-report equation[A B]   ;refers to equation (9)
+to-report equation[A B]  ;refers to equation (9)
+  if debug [print(word "A: " A " initial-speed " [initial-speed] of A " initial-position " [initial-position] of A)]
+  if debug [print(word "B: "B " initial-speed " [initial-speed] of B " initial-position " [initial-position] of B)]
   let one (((([initial-speed] of A )^ 2 - ([initial-speed] of B) ^ 2) / (2 * deceleration)) + (([initial-speed] of A - [initial-speed] of B) / 2))
-  let ris (one - [initial-position] of B + [initial-position] of A)
-  report ris
+  let ris (one - [initial-position] of B  + [initial-position] of A)
+  if debug [print(word "result: "ris)]
+  report (abs ris)
 end
 to increase-speed   ; refers to equation (3)
   set speed (speed + acceleration)
@@ -432,7 +440,7 @@ number-of-cars-main-lane
 number-of-cars-main-lane
 0
 world-width
-7.0
+42.0
 1
 1
 NIL
@@ -466,10 +474,10 @@ SLIDER
 118
 acceleration
 acceleration
-0.001
-0.01
-0.001
-0.001
+0.25
+0.25
+0.25
+0
 1
 NIL
 HORIZONTAL
@@ -583,7 +591,7 @@ number-of-cars-second-lane
 number-of-cars-second-lane
 0
 xcor-start-of-merging-lane
-3.0
+4.0
 1
 1
 NIL
@@ -596,13 +604,24 @@ SLIDER
 153
 deceleration
 deceleration
-0.1
-0.1
-0.004
-0.01
+1
+1
+1.0
+0
 1
 NIL
 HORIZONTAL
+
+SWITCH
+65
+155
+168
+188
+debug
+debug
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
