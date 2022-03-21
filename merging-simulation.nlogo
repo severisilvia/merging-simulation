@@ -9,8 +9,8 @@ turtles-own [
   top-speed     ; the maximum speed of the car (different for all cars)
   target-lane   ; the desired lane of the car 1 main, -1 secondary
   patience      ; the driver's current level of patience
-  initial-speed
-  initial-position
+  ;initial-speed
+  ;initial-position
 
 
   ;non ancora usato
@@ -42,11 +42,9 @@ to create-or-remove-cars-main-lane
     move-to one-of free road-patches-main
     set target-lane pycor
     set heading 90
-    set top-speed 0.5 + random-float 0.5
-    set speed 0.5
-    set initial-speed speed ; at the beginning speed and initial-speed are the same
-    set initial-position xcor
-    ;set patience random max-patience
+    set top-speed 1.5
+    set speed 0.5 + random-float 0.05
+
   ]
   if count turtles with [ycor = 1] > number-of-cars-main-lane [
     let n count turtles with [ycor = 1] - number-of-cars-main-lane
@@ -65,11 +63,9 @@ to create-or-remove-cars-second-lane
     move-to one-of free road-patches-secondary
     set target-lane pycor
     set heading 90
-    set top-speed 0.5 + random-float 0.5
-    set speed 0.5
-    set initial-speed speed ; at the beginning speed and initial-speed are the same
-    set initial-position xcor
-    ;set patience random max-patience
+    set top-speed 1.5
+    set speed 0.5 + random-float 0.05
+
   ]
   if count turtles with [ycor = -1] > number-of-cars-second-lane [
     let n count turtles with [ycor = -1] - number-of-cars-second-lane
@@ -81,6 +77,7 @@ end
 to-report free [ road-patches ] ; turtle procedure
   let this-car self
   report road-patches with [
+    not any? turtles-on neighbors with [ self != this-car ] and
     not any? turtles-here with [ self != this-car ]
   ]
 end
@@ -132,7 +129,7 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
 
     if kind = 1 [                  ;upper  line
       pen-down
-      forward world-width
+      forward world-width + 1
       pen-up
     ]
     if kind = 0 [                   ; first middle line
@@ -147,7 +144,7 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
       left 90
       forward number-of-lanes
       right 90
-      forward (world-width - xcor-end-of-merging-lane)
+      forward (world-width - xcor-end-of-merging-lane + 1)
       pen-up
     ]
     die
@@ -176,61 +173,71 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   let forward-position 0 ;information about position of B
   let n (world-width - xcor)
   if (n < 0)[ set n 0]
-  if debug [print(word "deltax min: " delta-x-min)]
   if debug [print(word "in-cone radius " n)]
   let forward-cars other turtles in-cone n 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
   let forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
 
   ifelse forward-car != Nobody
-  [ set delta-x  (([xcor] of forward-car - xcor) - (size / 2 )) ;save the distance between me and the forward car -->
+  [ set delta-x  (([xcor] of forward-car - xcor) - (size))  ;save the distance between me and the forward car -->
                                                                 ;Δxmin = δ + xsize where xsize is fixed vehicle size and δ is minimal safe tracking distance
+                                                                ; in our case xsize=1 because 0.5 from me and 0.5 from the forward car
     set forward-speed [speed] of forward-car
     set forward-position [xcor] of forward-car  ]
-
-  [ set delta-x world-width - (size / 2)                     ;there isn't any forward-car
+    [set delta-x (world-width - size - xcor)
     set forward-speed 10000
-    set forward-position 0  ]    ;CAMBIA IN VALORI SENSATI
+    set forward-position world-width + 1] ;I suppose to have a car at the beginning of lane
+
   if debug [print(word "I am " who " and my distance between the forward car " forward-car " is " delta-x)]
   ;starting with the algorithm
 
-;  if forward-car != Nobody[
   ifelse delta-x < delta-x-min
   [ if debug [print(word "turtle " who " decrease speed delta-x < delta-x-min")]
     decrease-speed
-    update-position ]
+    update-position
+    if debug [print(word "the speed of turtle " who " is: " speed)
+                print(word "the position of turtle " who " is: " xcor) ]
+     ]
   [ ifelse forward-speed > speed
     [ if debug [print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed > speed")]
       increase-speed
-      update-position ]  ;non capisco se è uguale a prima, leggi bene algoritmo potrebbe essere diverso
-    [ifelse equation self forward-car < delta-x-min ; correggi questo
+      update-position
+     if debug [print(word "the speed of turtle " who " is: " speed)
+                print(word "the position of turtle " who " is: " xcor) ]
+    ]
+    [ifelse equation self forward-car < delta-x-min ; con questa velocità riesco a frenare in tempo?
       [ if debug [print(word "turtle " who " decrease speed because delta-x => delta-x-min but forward-speed <= speed and equation < delta-x-min ")]
         decrease-speed
-       update-position]
+       update-position
+      if debug [print(word "the speed of turtle " who " is: " speed)
+                print(word "the position of turtle " who " is: " xcor) ]
+      ]
       [if debug [ print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed <= speed and equation >= delta-x-min")]
        increase-speed
-       update-position]
-
+       update-position
+      if debug [print(word "the speed of turtle " who " is: " speed)
+                print(word "the position of turtle " who " is: " xcor) ]
+      ]
     ]
   ]
-;  ]
+
 end
 
 to-report equation[A B]  ;refers to equation (9)
-  if debug [print(word "A: " A " initial-speed " [initial-speed] of A " initial-position " [initial-position] of A)]
-  if debug [print(word "B: "B " initial-speed " [initial-speed] of B " initial-position " [initial-position] of B)]
-  let one (((([initial-speed] of A )^ 2 - ([initial-speed] of B) ^ 2) / (2 * deceleration)) + (([initial-speed] of A - [initial-speed] of B) / 2))
-  let ris (one - [initial-position] of B  + [initial-position] of A)
+  ;if debug [print(word "A: " A " initial-speed " [initial-speed] of A " initial-position " [initial-position] of A)]
+  ;if debug [print(word "B: "B " initial-speed " [initial-speed] of B " initial-position " [initial-position] of B)]
+  let one (((([speed] of A )^ 2 - ([speed] of B) ^ 2) / (2 * deceleration)) + (([speed] of B - [speed] of A) / 2))
+  let ris (one + [xcor] of B  - [xcor] of A)
   if debug [print(word "result: "ris)]
   report (abs ris)
 end
 to increase-speed   ; refers to equation (3)
   set speed (speed + acceleration)
-  if speed > top-speed [ set speed top-speed ]   ; top-speed??
+  if speed > top-speed [ set speed top-speed ]
 end
 
 to decrease-speed ; refers to equation (3)
   set speed (speed - deceleration)
-  if speed < 0 [ set speed deceleration ]
+  if speed < 0 [ set speed deceleration] ;abbassa i valori di acceleration e deceleration
 end
 to update-position ;refers to equation (4)
   forward speed
@@ -440,7 +447,7 @@ number-of-cars-main-lane
 number-of-cars-main-lane
 0
 world-width
-42.0
+5.0
 1
 1
 NIL
@@ -474,9 +481,9 @@ SLIDER
 118
 acceleration
 acceleration
-0.25
-0.25
-0.25
+0.1
+0.1
+0.1
 0
 1
 NIL
@@ -591,7 +598,7 @@ number-of-cars-second-lane
 number-of-cars-second-lane
 0
 xcor-start-of-merging-lane
-4.0
+0.0
 1
 1
 NIL
@@ -604,9 +611,9 @@ SLIDER
 153
 deceleration
 deceleration
-1
-1
-1.0
+0.5
+0.5
+0.5
 0
 1
 NIL
