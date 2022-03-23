@@ -39,17 +39,20 @@ to create-or-remove-cars-main-lane
   ]
    create-turtles (number-of-cars-main-lane - count turtles with [ycor = 1]) [
     set color car-color
-    move-to one-of free road-patches-main
-    set target-lane pycor
-    set heading 90
-    set top-speed 1.5
-    set speed 0.5 + random-float 0.05
-
+    ifelse free road-patches-main != Nobody
+      [ move-to min-one-of free road-patches-main [pxcor]
+       set target-lane pycor
+       set heading 90
+       set top-speed 1.0
+       set speed 0.5 + random-float 0.05
+    ]
+    [  set number-of-cars-main-lane number-of-cars-main-lane - 1
+       die ]
   ]
-  if count turtles with [ycor = 1] > number-of-cars-main-lane [
-    let n count turtles with [ycor = 1] - number-of-cars-main-lane
-    ask n-of n [ other turtles with [ycor = 1]] of selected-car [ die ]
-  ]
+;  if count turtles with [ycor = 1] > number-of-cars-main-lane [
+;    let n count turtles with [ycor = 1] - number-of-cars-main-lane
+;    ask n-of n [ other turtles with [ycor = 1]] of selected-car [ die ]
+;  ]
 end
 
 to create-or-remove-cars-second-lane
@@ -60,25 +63,30 @@ to create-or-remove-cars-second-lane
   ]
   create-turtles (number-of-cars-second-lane - count turtles with [ycor = -1]) [
     set color car-color
-    move-to one-of free road-patches-secondary
-    set target-lane pycor
-    set heading 90
-    set top-speed 1.5
-    set speed 0.5 + random-float 0.05
+   ifelse free road-patches-secondary != Nobody
+      [ move-to min-one-of free road-patches-secondary [pxcor]
+       set target-lane pycor
+       set heading 90
+       set top-speed 1.0
+       set speed 0.5 + random-float 0.05
+    ]
+    [  set number-of-cars-second-lane number-of-cars-second-lane - 1
+       die ]
+
 
   ]
-  if count turtles with [ycor = -1] > number-of-cars-second-lane [
-    let n count turtles with [ycor = -1] - number-of-cars-second-lane
-    ask n-of n [ other turtles with [ycor = -1]] of selected-car [ die ]
-  ]
+;  if count turtles with [ycor = -1] > number-of-cars-second-lane [
+;    let n count turtles with [ycor = -1] - number-of-cars-second-lane
+;    ask n-of n [ other turtles with [ycor = -1]] of selected-car [ die ]
+;  ]
 
 end
 
 to-report free [ road-patches ] ; turtle procedure
   let this-car self
   report road-patches with [
-    not any? turtles-on neighbors with [ self != this-car ] and
-    not any? turtles-here with [ self != this-car ]
+    not any? turtles-on neighbors with [ self != this-car ] and not any? turtles-here
+
   ]
 end
 
@@ -153,17 +161,18 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
 end
 
 to go
-  create-or-remove-cars-main-lane
-  create-or-remove-cars-second-lane
+  ;create-or-remove-cars-main-lane
+  ;create-or-remove-cars-second-lane
   ask turtles [move-forward]
 
-  ;ask turtles with [ycor = -1] [choose-new-lane]
+  ask turtles with [ycor = -1 and xcor >= xcor-start-of-merging-lane and xcor <= xcor-end-of-merging-lane] [move-to-target-lane]
+  ;move-to-target-lane deve implementare il merging
 
 
 ;  ask turtles [ move-forward ]
 ;  ask turtles with [ patience <= 0 ] [ choose-new-lane ]
 ;  ask turtles with [ ycor != target-lane ] [ move-to-target-lane ]
-;  tick
+ tick
 end
 
 to move-forward ; turtle procedure --> implementation of the tracking algorithm
@@ -174,18 +183,22 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   let n (world-width - xcor)
   if (n < 0)[ set n 0]
   if debug [print(word "in-cone radius " n)]
+  ;let forward-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
   let forward-cars other turtles in-cone n 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
   let forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
-
-  ifelse forward-car != Nobody
-  [ set delta-x  (([xcor] of forward-car - xcor) - (size))  ;save the distance between me and the forward car -->
+  let flag 0
+  ifelse forward-car = Nobody
+  [ set forward-car min-one-of turtles with [ycor = [ycor] of myself][xcor]
+    set delta-x  (world-width - xcor + [xcor] of forward-car - size)
+    set flag 1 ] ; flag used for the right formula in the equation of stop
+  [  set delta-x  ([xcor] of forward-car - xcor - size)  ;save the distance between me and the forward car -->
                                                                 ;Δxmin = δ + xsize where xsize is fixed vehicle size and δ is minimal safe tracking distance
                                                                 ; in our case xsize=1 because 0.5 from me and 0.5 from the forward car
-    set forward-speed [speed] of forward-car
-    set forward-position [xcor] of forward-car  ]
-    [set delta-x (world-width - size - xcor)
-    set forward-speed 10000
-    set forward-position world-width + 1] ;I suppose to have a car at the beginning of lane
+  ]
+
+
+  set forward-speed [speed] of forward-car
+  set forward-position [xcor] of forward-car
 
   if debug [print(word "I am " who " and my distance between the forward car " forward-car " is " delta-x)]
   ;starting with the algorithm
@@ -204,7 +217,7 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
      if debug [print(word "the speed of turtle " who " is: " speed)
                 print(word "the position of turtle " who " is: " xcor) ]
     ]
-    [ifelse equation self forward-car < delta-x-min ; con questa velocità riesco a frenare in tempo?
+    [ifelse equation self forward-car flag < delta-x-min ; con questa velocità riesco a frenare in tempo?
       [ if debug [print(word "turtle " who " decrease speed because delta-x => delta-x-min but forward-speed <= speed and equation < delta-x-min ")]
         decrease-speed
        update-position
@@ -222,11 +235,15 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
 
 end
 
-to-report equation[A B]  ;refers to equation (9)
+to-report equation[A B flag]  ;refers to equation (9)
   ;if debug [print(word "A: " A " initial-speed " [initial-speed] of A " initial-position " [initial-position] of A)]
   ;if debug [print(word "B: "B " initial-speed " [initial-speed] of B " initial-position " [initial-position] of B)]
   let one (((([speed] of A )^ 2 - ([speed] of B) ^ 2) / (2 * deceleration)) + (([speed] of B - [speed] of A) / 2))
-  let ris (one + [xcor] of B  - [xcor] of A)
+  let ris 0
+  ifelse flag = 1
+  [set ris (one + world-width - [xcor] of A + [xcor] of B - size) ]
+  [set ris (one + [xcor] of B  - [xcor] of A - size) ]
+
   if debug [print(word "result: "ris)]
   report (abs ris)
 end
@@ -280,6 +297,7 @@ to choose-new-lane ; turtle procedure
 end
 
 to move-to-target-lane ; turtle procedure
+
   set heading ifelse-value target-lane < ycor [ 180 ] [ 0 ]
   let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
   let blocking-car min-one-of blocking-cars [ distance myself ]
@@ -329,13 +347,13 @@ to-report xcor-start-of-merging-lane
   report (xcor-end-of-merging-lane - 5)
 end
 to-report delta-x-min
-  report 5
+  report 4
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 220
 10
-1068
+1048
 359
 -1
 -1
@@ -350,11 +368,11 @@ GRAPHICS-WINDOW
 1
 1
 0
-41
+40
 -8
 8
-0
-0
+1
+1
 1
 ticks
 30.0
@@ -446,8 +464,8 @@ SLIDER
 number-of-cars-main-lane
 number-of-cars-main-lane
 0
-world-width
-5.0
+19
+4.0
 1
 1
 NIL
@@ -481,9 +499,9 @@ SLIDER
 118
 acceleration
 acceleration
-0.1
-0.1
-0.1
+0.01
+0.01
+0.01
 0
 1
 NIL
@@ -597,8 +615,8 @@ SLIDER
 number-of-cars-second-lane
 number-of-cars-second-lane
 0
-xcor-start-of-merging-lane
-0.0
+10
+3.0
 1
 1
 NIL
@@ -611,9 +629,9 @@ SLIDER
 153
 deceleration
 deceleration
-0.5
-0.5
-0.5
+0.1
+0.1
+0.1
 0
 1
 NIL
