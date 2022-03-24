@@ -1,7 +1,16 @@
 globals [
   selected-car   ; the currently selected car
   lanes          ; a list of the y coordinates of different lanes
-  ;tao   ;
+  number-of-lanes
+
+  xcor-start-of-merging-lane  ; CRITICAL ZONE
+  xcor-merging-point
+  xcor-end-of-merging-lane
+
+  xcor-start-of-control-zone  ; CONTROL ZONE
+  xcor-end-of-control-zone
+
+  delta-x-min
 ]
 
 turtles-own [
@@ -9,20 +18,25 @@ turtles-own [
   top-speed     ; the maximum speed of the car (different for all cars)
   target-lane   ; the desired lane of the car 1 main, -1 secondary
   patience      ; the driver's current level of patience
-  ;initial-speed
-  ;initial-position
-
-
-  ;non ancora usato
-  zone          ; the zone of the lane: -1 self-zone 0 control-zone 1 critical-zone
-
+  n-blocks      ; number of merging trial
 
 ]
 
 to setup
   clear-all
   set-default-shape turtles "car"
-  ;set tao 1 ; in our case the temporal unit is 1
+  set number-of-lanes 2
+
+  ;CRITICAL ZONE
+  set xcor-end-of-merging-lane 30
+  set xcor-start-of-merging-lane (xcor-end-of-merging-lane - 5)
+  set xcor-merging-point xcor-start-of-merging-lane + 3
+
+  ;CONTROL ZONE
+  set xcor-start-of-control-zone 5
+  set xcor-end-of-control-zone xcor-merging-point
+
+  set delta-x-min 4
   draw-road
   create-or-remove-cars-main-lane
   create-or-remove-cars-second-lane
@@ -43,16 +57,17 @@ to create-or-remove-cars-main-lane
       [ move-to min-one-of free road-patches-main [pxcor]
        set target-lane pycor
        set heading 90
-       set top-speed 1.0
-       set speed 0.5 + random-float 0.05
+       set top-speed 0.5
+       set speed 0.3 + random-float 0.05
+       set n-blocks 0
     ]
     [  set number-of-cars-main-lane number-of-cars-main-lane - 1
        die ]
   ]
-;  if count turtles with [ycor = 1] > number-of-cars-main-lane [
-;    let n count turtles with [ycor = 1] - number-of-cars-main-lane
-;    ask n-of n [ other turtles with [ycor = 1]] of selected-car [ die ]
-;  ]
+  if count turtles with [ycor = 1] > 8 [
+    let n count turtles with [ycor = 1] - 8
+    ask n-of n [ other turtles with [ycor = 1]] of selected-car [ die ]
+  ]
 end
 
 to create-or-remove-cars-second-lane
@@ -67,18 +82,19 @@ to create-or-remove-cars-second-lane
       [ move-to min-one-of free road-patches-secondary [pxcor]
        set target-lane pycor
        set heading 90
-       set top-speed 1.0
-       set speed 0.5 + random-float 0.05
+       set top-speed 0.5
+       set speed 0.3 + random-float 0.05
+       set n-blocks 0
     ]
     [  set number-of-cars-second-lane number-of-cars-second-lane - 1
        die ]
 
 
   ]
-;  if count turtles with [ycor = -1] > number-of-cars-second-lane [
-;    let n count turtles with [ycor = -1] - number-of-cars-second-lane
-;    ask n-of n [ other turtles with [ycor = -1]] of selected-car [ die ]
-;  ]
+  if count turtles with [ycor = -1] > 18 [
+    let n count turtles with [ycor = -1] - 18
+    ask n-of n [ other turtles with [ycor = -1]] of selected-car [ die ]
+  ]
 
 end
 
@@ -161,19 +177,24 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
 end
 
 to go
-  ;create-or-remove-cars-main-lane
-  ;create-or-remove-cars-second-lane
-  ask turtles [move-forward]
+  create-or-remove-cars-main-lane
+  create-or-remove-cars-second-lane
+  ask turtles [move-forward] ;TRACKING ALGORITHM ALWAYS
+  ask turtles with [target-lane = -1 and xcor >= xcor-start-of-control-zone and xcor <= xcor-merging-point] [change-speed] ; ALGORITHM TO FOLLOW ON THE CONTROL ZONE
+  ask turtles with [target-lane = -1 and xcor >= xcor-merging-point and xcor < xcor-end-of-merging-lane] [do-merging] ; MERGING ON THE CRITICAL ZONE
 
-  ask turtles with [ycor = -1 and xcor >= xcor-start-of-merging-lane and xcor <= xcor-end-of-merging-lane] [move-to-target-lane]
-  ;move-to-target-lane deve implementare il merging
-
-
-;  ask turtles [ move-forward ]
-;  ask turtles with [ patience <= 0 ] [ choose-new-lane ]
-;  ask turtles with [ ycor != target-lane ] [ move-to-target-lane ]
- tick
+  tick
 end
+
+;to go
+;  create-or-remove-cars-main-lane
+;  create-or-remove-cars-second-lane
+;  ask turtles [move-forward] ;TRACKING ALGORITHM ALWAYS
+;  ;ask turtles with [target-lane = -1 and xcor < xcor-start-of-merging-lane][move-forward]
+;  ask turtles with [target-lane = -1 and xcor >= xcor-start-of-merging-lane] [change-lane] ; ALGORITHM TO FOLLOW ON THE CONTROL ZONE
+;  ask turtles with [target-lane = -1 and xcor >= xcor-start-of-merging-lane] [change-lane] ;MERGING ON THE CRITICAL ZONE
+;  tick
+;end
 
 to move-forward ; turtle procedure --> implementation of the tracking algorithm
   set heading 90
@@ -247,6 +268,7 @@ to-report equation[A B flag]  ;refers to equation (9)
   if debug [print(word "result: "ris)]
   report (abs ris)
 end
+
 to increase-speed   ; refers to equation (3)
   set speed (speed + acceleration)
   if speed > top-speed [ set speed top-speed ]
@@ -254,61 +276,76 @@ end
 
 to decrease-speed ; refers to equation (3)
   set speed (speed - deceleration)
-  if speed < 0 [ set speed deceleration] ;abbassa i valori di acceleration e deceleration
+  if speed < 0 [ set speed deceleration]
 end
 to update-position ;refers to equation (4)
   forward speed
 end
 
-;to move-forward ; turtle procedure --> implementation of the tracking algorithm
-;  set heading 90
-;
-;  let blocking-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
+to stop-car ; turtle procedure
+  set speed 0
+end
+
+to change-speed
+  let associated-cars other turtles in-cone world-width 190
+  if debug [print(word "associated cars : " associated-cars)]
+  let associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
+  let delta-x_s xcor-merging-point - [xcor] of self
+  let delta-x_m xcor-merging-point - [xcor] of associated-car
+  if debug [print(word "association between " who " and " associated-car)]
+  if debug [print(word "x_s  : " delta-x_s)]
+  if debug [print(word "x_m  : " delta-x_m)]
+
+  ifelse delta-x_s < delta-x_m
+
+  [ increase-speed
+    ;ask associated-car [decrease-speed]             ;CERCA DI CAPIRE PERCHE' SI ASSOCIA SEMPRE CON QUELLO DIETRO
+  ]
+ [  ;ask associated-car [increase-speed]
+    decrease-speed
+  ]
+
+end
+;to change-lane ; turtle procedure
+;  set heading 0
+;  let blocking-cars other turtles in-cone (delta-x-min) 180 with [abs (xcor - [xcor] of myself) <= delta-x-min]
+;  ;let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
 ;  let blocking-car min-one-of blocking-cars [ distance myself ]
-;  if blocking-car != nobody [
-;    ; match the speed of the car ahead of you and then slow
-;    ; down so you are driving a bit slower than that car.
-;    set speed [ speed ] of blocking-car
+;  ifelse blocking-car = nobody [
+;    forward 2
+;    set target-lane 1
+;    set n-blocks 0
+;  ] [
 ;    slow-down-car
+;    slow-down-or-stop-car
+;    set n-blocks n-blocks + 1
+;    if debug [print(word "n-blocks of turtle " who " : " n-blocks)]
+;    if xcor >= (xcor-end-of-merging-lane - 2) [stop-car]
+;    if n-blocks >= 5 [stop-car]
 ;  ]
-;  forward speed
 ;end
 
-to slow-down-car ; turtle procedure
-  set speed (speed - deceleration)
-  if speed < 0 [ set speed deceleration ]
+to do-merging
+  set heading 0
+  forward 2
+  set target-lane 1
+
 end
 
-to speed-up-car ; turtle procedure
-  set speed (speed + acceleration)
-  if speed > top-speed [ set speed top-speed ]
-end
 
-to choose-new-lane ; turtle procedure
-  ; Choose a new lane among those with the minimum
-  ; distance to your current lane (i.e., your ycor).
-  let other-lanes remove ycor lanes
-  if not empty? other-lanes [
-    let min-dist min map [ y -> abs (y - ycor) ] other-lanes
-    let closest-lanes filter [ y -> abs (y - ycor) = min-dist ] other-lanes
-    set target-lane one-of closest-lanes
-    ;set patience max-patience
-  ]
-end
-
-to move-to-target-lane ; turtle procedure
-
-  set heading ifelse-value target-lane < ycor [ 180 ] [ 0 ]
-  let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
-  let blocking-car min-one-of blocking-cars [ distance myself ]
-  ifelse blocking-car = nobody [
-    forward 0.2
-    set ycor precision ycor 1 ; to avoid floating point errors
-  ] [
-    ; slow down if the car blocking us is behind, otherwise speed up
-    ifelse towards blocking-car <= 180 [ slow-down-car ] [ speed-up-car ]
-  ]
-end
+;to move-to-target-lane ; turtle procedure
+;
+;  set heading ifelse-value target-lane < ycor [ 180 ] [ 0 ]
+;  let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
+;  let blocking-car min-one-of blocking-cars [ distance myself ]
+;  ifelse blocking-car = nobody [
+;    forward 0.2
+;    set ycor precision ycor 1 ; to avoid floating point errors
+;  ] [
+;    ; slow down if the car blocking us is behind, otherwise speed up
+;    ifelse towards blocking-car <= 180 [ slow-down-car ] [ speed-up-car ]
+;  ]
+;end
 
 to-report x-distance
   report distancexy [ xcor ] of myself ycor
@@ -336,24 +373,11 @@ to-report car-color
   ; give all cars a blueish color, but still make them distinguishable
   report one-of [ blue cyan sky ] + 1.5 + random-float 1.0
 end
-
-to-report number-of-lanes
-  report 2
-end
-to-report xcor-end-of-merging-lane
-  report 30
-end
-to-report xcor-start-of-merging-lane
-  report (xcor-end-of-merging-lane - 5)
-end
-to-report delta-x-min
-  report 4
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 220
 10
-1048
+1448
 359
 -1
 -1
@@ -368,7 +392,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-40
+60
 -8
 8
 1
@@ -457,15 +481,15 @@ mean [speed] of turtles
 11
 
 SLIDER
-10
+12
 50
-110
+112
 83
 number-of-cars-main-lane
 number-of-cars-main-lane
 0
-19
-4.0
+6
+6.0
 1
 1
 NIL
@@ -499,9 +523,9 @@ SLIDER
 118
 acceleration
 acceleration
-0.01
-0.01
-0.01
+0.005
+0.005
+0.005
 0
 1
 NIL
@@ -615,8 +639,8 @@ SLIDER
 number-of-cars-second-lane
 number-of-cars-second-lane
 0
-10
-3.0
+5
+4.0
 1
 1
 NIL
@@ -629,9 +653,9 @@ SLIDER
 153
 deceleration
 deceleration
-0.1
-0.1
-0.1
+0.2
+0.2
+0.2
 0
 1
 NIL
