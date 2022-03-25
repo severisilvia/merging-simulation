@@ -1,5 +1,5 @@
 globals [
-  selected-car   ; the currently selected car
+
   lanes          ; a list of the y coordinates of different lanes
   number-of-lanes
 
@@ -19,6 +19,8 @@ turtles-own [
   target-lane   ; the desired lane of the car 1 main, -1 secondary
   patience      ; the driver's current level of patience
   n-blocks      ; number of merging trial
+  forward-car   ; the forward car on the street
+  associated-car ;the car on the main lane asocciated with me
 
 ]
 
@@ -36,12 +38,10 @@ to setup
   set xcor-start-of-control-zone 5
   set xcor-end-of-control-zone xcor-merging-point
 
-  set delta-x-min 4
+  set delta-x-min 6
   draw-road
   create-or-remove-cars-main-lane
   create-or-remove-cars-second-lane
-  set selected-car one-of turtles
-  ask selected-car [ set color red ]
   reset-ticks
 end
 
@@ -60,13 +60,14 @@ to create-or-remove-cars-main-lane
        set top-speed 0.5
        set speed 0.3 + random-float 0.05
        set n-blocks 0
+       set forward-car nobody
     ]
     [  set number-of-cars-main-lane number-of-cars-main-lane - 1
        die ]
   ]
   if count turtles with [ycor = 1] > 8 [
     let n count turtles with [ycor = 1] - 8
-    ask n-of n [ other turtles with [ycor = 1]] of selected-car [ die ]
+    ask n-of n [ other turtles with [ycor = 1 and xcor > (xcor-end-of-merging-lane + 10)]] of one-of turtles [ die ]
   ]
 end
 
@@ -85,24 +86,25 @@ to create-or-remove-cars-second-lane
        set top-speed 0.5
        set speed 0.3 + random-float 0.05
        set n-blocks 0
+       set forward-car nobody
     ]
     [  set number-of-cars-second-lane number-of-cars-second-lane - 1
        die ]
 
 
   ]
-  if count turtles with [ycor = -1] > 18 [
-    let n count turtles with [ycor = -1] - 18
-    ask n-of n [ other turtles with [ycor = -1]] of selected-car [ die ]
+  if count turtles with [ycor = -1] > 5 [
+    let n count turtles with [ycor = -1] - 5
+    ask n-of n [ other turtles with [ycor = -1]] of one-of turtles [ die ]
   ]
 
 end
 
 to-report free [ road-patches ] ; turtle procedure
   let this-car self
-  report road-patches with [
-    not any? turtles-on neighbors with [ self != this-car ] and not any? turtles-here
 
+  report road-patches with [
+    not any? turtles-on patches with [ self != this-car and remainder pxcor 5 = 0] and not any? turtles-here   ; identifica correttamente le patches su cui posizionare le cars
   ]
 end
 
@@ -186,15 +188,6 @@ to go
   tick
 end
 
-;to go
-;  create-or-remove-cars-main-lane
-;  create-or-remove-cars-second-lane
-;  ask turtles [move-forward] ;TRACKING ALGORITHM ALWAYS
-;  ;ask turtles with [target-lane = -1 and xcor < xcor-start-of-merging-lane][move-forward]
-;  ask turtles with [target-lane = -1 and xcor >= xcor-start-of-merging-lane] [change-lane] ; ALGORITHM TO FOLLOW ON THE CONTROL ZONE
-;  ask turtles with [target-lane = -1 and xcor >= xcor-start-of-merging-lane] [change-lane] ;MERGING ON THE CRITICAL ZONE
-;  tick
-;end
 
 to move-forward ; turtle procedure --> implementation of the tracking algorithm
   set heading 90
@@ -206,7 +199,7 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   if debug [print(word "in-cone radius " n)]
   ;let forward-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
   let forward-cars other turtles in-cone n 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
-  let forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
+  set forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
   let flag 0
   ifelse forward-car = Nobody
   [ set forward-car min-one-of turtles with [ycor = [ycor] of myself][xcor]
@@ -282,14 +275,10 @@ to update-position ;refers to equation (4)
   forward speed
 end
 
-to stop-car ; turtle procedure
-  set speed 0
-end
-
 to change-speed
   let associated-cars other turtles in-cone world-width 190
   if debug [print(word "associated cars : " associated-cars)]
-  let associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
+  set associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
   let delta-x_s xcor-merging-point - [xcor] of self
   let delta-x_m xcor-merging-point - [xcor] of associated-car
   if debug [print(word "association between " who " and " associated-car)]
@@ -298,14 +287,54 @@ to change-speed
 
   ifelse delta-x_s < delta-x_m
 
-  [ increase-speed
-    ;ask associated-car [decrease-speed]             ;CERCA DI CAPIRE PERCHE' SI ASSOCIA SEMPRE CON QUELLO DIETRO
+  [ ;increase-speed
+    ask associated-car [decrease-speed]
   ]
  [  ;ask associated-car [increase-speed]
     decrease-speed
   ]
-
 end
+; I this case the behaviour of second lane car depends on the main lane associated car
+;to change-speed
+;  let associated-cars other turtles in-cone world-width 190
+;  if debug [print(word "associated cars : " associated-cars)]
+;  let associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
+;  let delta-x_s xcor-merging-point - [xcor] of self
+;  let delta-x_m xcor-merging-point - [xcor] of associated-car
+;  if debug [print(word "association between " who " and " associated-car)]
+;  if debug [print(word "x_s  : " delta-x_s)]
+;  if debug [print(word "x_m  : " delta-x_m)]
+;
+;  ifelse delta-x_s < delta-x_m
+;
+;  [ increase-speed
+;    ;ask associated-car [decrease-speed]
+;  ]
+; [  ;ask associated-car [increase-speed]
+;    decrease-speed
+;  ]
+;end
+  ;  LIKE THE PAPER, IT DOESN'T WORK.
+;to change-speed
+;  let associated-cars other turtles in-cone world-width 190
+;  if debug [print(word "associated cars : " associated-cars)]
+;  let associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
+;  let delta-x_s xcor-merging-point - [xcor] of self
+;  let delta-x_m xcor-merging-point - [xcor] of associated-car
+;  if debug [print(word "association between " who " and " associated-car)]
+;  if debug [print(word "x_s  : " delta-x_s)]
+;  if debug [print(word "x_m  : " delta-x_m)]
+;
+;  ifelse delta-x_s < delta-x_m
+;
+;  [ increase-speed
+;    ;ask associated-car [decrease-speed]
+;  ]
+; [  ask associated-car [increase-speed]
+;    ;decrease-speed
+;  ]
+;
+;end
 ;to change-lane ; turtle procedure
 ;  set heading 0
 ;  let blocking-cars other turtles in-cone (delta-x-min) 180 with [abs (xcor - [xcor] of myself) <= delta-x-min]
@@ -329,44 +358,6 @@ to do-merging
   set heading 0
   forward 2
   set target-lane 1
-
-end
-
-
-;to move-to-target-lane ; turtle procedure
-;
-;  set heading ifelse-value target-lane < ycor [ 180 ] [ 0 ]
-;  let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
-;  let blocking-car min-one-of blocking-cars [ distance myself ]
-;  ifelse blocking-car = nobody [
-;    forward 0.2
-;    set ycor precision ycor 1 ; to avoid floating point errors
-;  ] [
-;    ; slow down if the car blocking us is behind, otherwise speed up
-;    ifelse towards blocking-car <= 180 [ slow-down-car ] [ speed-up-car ]
-;  ]
-;end
-
-to-report x-distance
-  report distancexy [ xcor ] of myself ycor
-end
-
-to-report y-distance
-  report distancexy xcor [ ycor ] of myself
-end
-
-to select-car
-  ; allow the user to select a different car by clicking on it with the mouse
-  if mouse-down? [
-    let mx mouse-xcor
-    let my mouse-ycor
-    if any? turtles-on patch mx my [
-      ask selected-car [ set color car-color ]
-      set selected-car one-of turtles-on patch mx my
-      ask selected-car [ set color red ]
-      display
-    ]
-  ]
 end
 
 to-report car-color
@@ -452,28 +443,11 @@ NIL
 NIL
 0
 
-BUTTON
-10
-190
-215
-223
-select car
-select-car
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
-
 MONITOR
-130
-335
+10
+230
 215
-380
+275
 mean speed
 mean [speed] of turtles
 2
@@ -481,46 +455,25 @@ mean [speed] of turtles
 11
 
 SLIDER
-12
-50
-112
-83
+10
+55
+215
+88
 number-of-cars-main-lane
 number-of-cars-main-lane
 0
 6
-6.0
+3.0
 1
 1
 NIL
 HORIZONTAL
 
-PLOT
-305
-385
-675
-560
-Car Speeds
-Time
-Speed
-0.0
-300.0
-0.0
-0.5
-true
-true
-"" ""
-PENS
-"average" 1.0 0 -10899396 true "" "plot mean [ speed ] of turtles"
-"max" 1.0 0 -11221820 true "" "plot max [ speed ] of turtles"
-"min" 1.0 0 -13345367 true "" "plot min [ speed ] of turtles"
-"selected-car" 1.0 0 -2674135 true "" "plot [ speed ] of selected-car"
-
 SLIDER
 10
-85
+125
 215
-118
+158
 acceleration
 acceleration
 0.005
@@ -531,116 +484,16 @@ acceleration
 NIL
 HORIZONTAL
 
-PLOT
-685
-385
-1055
-560
-Driver Patience
-Time
-Patience
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"average" 1.0 0 -10899396 true "" "plot mean [ patience ] of turtles"
-"max" 1.0 0 -11221820 true "" "plot max [ patience ] of turtles"
-"min" 1.0 0 -13345367 true "" "plot min [ patience ] of turtles"
-"selected car" 1.0 0 -2674135 true "" "plot [patience] of selected-car"
-
-BUTTON
-10
-225
-215
-258
-follow selected car
-follow selected-car
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
-
-BUTTON
-10
-260
-215
-293
-watch selected car
-watch selected-car
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
-
-BUTTON
-10
-295
-215
-328
-reset perspective
-reset-perspective
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
-
-MONITOR
-10
-335
-130
-380
-selected car speed
-[ speed ] of selected-car
-2
-1
-11
-
-PLOT
-10
-386
-300
-561
-Cars Per Lane
-Time
-Cars
-0.0
-0.0
-0.0
-0.0
-true
-true
-"set-plot-y-range (floor (count turtles * 0.4)) (ceiling (count turtles * 0.6))\nforeach range length lanes [ i ->\n  create-temporary-plot-pen (word (i + 1))\n  set-plot-pen-color item i base-colors\n]" "foreach range length lanes [ i ->\n  set-current-plot-pen (word (i + 1))\n  plot count turtles with [ round ycor = item i lanes ]\n]"
-PENS
-
 SLIDER
-115
-50
+10
+90
 215
-83
+123
 number-of-cars-second-lane
 number-of-cars-second-lane
 0
 5
-4.0
+5.0
 1
 1
 NIL
@@ -648,24 +501,24 @@ HORIZONTAL
 
 SLIDER
 10
-120
+160
 215
-153
+193
 deceleration
 deceleration
-0.2
-0.2
-0.2
+0.15
+0.15
+0.15
 0
 1
 NIL
 HORIZONTAL
 
 SWITCH
-65
-155
-168
-188
+10
+195
+215
+228
 debug
 debug
 1
