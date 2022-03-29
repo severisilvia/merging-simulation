@@ -67,7 +67,7 @@ to create-or-remove-cars-main-lane
   ]
   if count turtles with [ycor = 1] > 8 [
     let n count turtles with [ycor = 1] - 8
-    ask n-of n [ other turtles with [ycor = 1 and xcor > (xcor-end-of-merging-lane + 10)]] of one-of turtles [ die ]
+    ask n-of n [ other turtles with [ycor = 1 and xcor > (xcor-end-of-merging-lane + 5)]] of one-of turtles [ die ]
   ]
 end
 
@@ -102,10 +102,10 @@ end
 
 to-report free [ road-patches ] ; turtle procedure
   let this-car self
-
-  report road-patches with [
-    not any? turtles-on patches with [ self != this-car and remainder pxcor 5 = 0] and not any? turtles-here   ; identifica correttamente le patches su cui posizionare le cars
-  ]
+  report road-patches with [remainder pxcor delta-x-min = 0 and not any? turtles-here and not any? turtles-on neighbors ] ;and not any? turtles-here
+;  report road-patches with [
+;    not any? turtles-on patches with [ self != this-car and remainder pxcor 5 = 0] and not any? turtles-here   ; identifica correttamente le patches su cui posizionare le cars
+;  ]
 end
 
 ;here I have to draw the merging between the two lanes
@@ -177,6 +177,8 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
   ]
 
 end
+
+;c'è un problema quando due agenti si associano alla stessa macchina, in quel caso l'algoritmo di tracking non è mantenuto
 
 to go
   create-or-remove-cars-main-lane
@@ -269,7 +271,7 @@ end
 
 to decrease-speed ; refers to equation (3)
   set speed (speed - deceleration)
-  if speed < 0 [ set speed deceleration]
+  if speed < 0 [ set speed 0.05]
 end
 to update-position ;refers to equation (4)
   forward speed
@@ -463,7 +465,7 @@ number-of-cars-main-lane
 number-of-cars-main-lane
 0
 6
-3.0
+6.0
 1
 1
 NIL
@@ -492,8 +494,8 @@ SLIDER
 number-of-cars-second-lane
 number-of-cars-second-lane
 0
-5
-5.0
+3
+3.0
 1
 1
 NIL
