@@ -465,7 +465,7 @@ number-of-cars-main-lane
 number-of-cars-main-lane
 0
 6
-6.0
+4.0
 1
 1
 NIL
@@ -495,7 +495,7 @@ number-of-cars-second-lane
 number-of-cars-second-lane
 0
 3
-3.0
+1.0
 1
 1
 NIL
