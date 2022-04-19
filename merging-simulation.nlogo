@@ -2,6 +2,7 @@ globals [
 
   lanes          ; a list of the y coordinates of different lanes
   number-of-lanes
+  starting-number-of-cars
 
   xcor-start-of-merging-lane  ; CRITICAL ZONE
   xcor-merging-point
@@ -28,6 +29,10 @@ to setup
   clear-all
   set-default-shape turtles "car"
   set number-of-lanes 2
+  set starting-number-of-cars (number-of-cars-main-lane + number-of-cars-second-lane)
+
+  if starting-number-of-cars > 8 [set starting-number-of-cars 8 ]
+  if starting-number-of-cars < 3 [set starting-number-of-cars 3 ]
 
   ;CRITICAL ZONE
   set xcor-end-of-merging-lane 30
@@ -65,9 +70,9 @@ to create-or-remove-cars-main-lane
     [  set number-of-cars-main-lane number-of-cars-main-lane - 1
        die ]
   ]
-  if count turtles with [ycor = 1] > 8 [
-    let n count turtles with [ycor = 1] - 8
-    ask n-of n [ other turtles with [ycor = 1 and xcor > (xcor-end-of-merging-lane + 5)]] of one-of turtles [ die ]
+  if count turtles with [ycor = 1] > starting-number-of-cars [
+    let n count turtles with [ycor = 1] - starting-number-of-cars
+    ask n-of n [ other turtles with [ycor = 1 and xcor > (xcor-end-of-merging-lane + 3)]] of one-of turtles [ die ]
   ]
 end
 
@@ -93,8 +98,8 @@ to create-or-remove-cars-second-lane
 
 
   ]
-  if count turtles with [ycor = -1] > 5 [
-    let n count turtles with [ycor = -1] - 5
+  if count turtles with [ycor = -1] > 4 [
+    let n count turtles with [ycor = -1] - 4
     ask n-of n [ other turtles with [ycor = -1]] of one-of turtles [ die ]
   ]
 
@@ -181,8 +186,8 @@ end
 ;c'è un problema quando due agenti si associano alla stessa macchina, in quel caso l'algoritmo di tracking non è mantenuto
 
 to go
-  create-or-remove-cars-main-lane
   create-or-remove-cars-second-lane
+  create-or-remove-cars-main-lane
   ask turtles [move-forward] ;TRACKING ALGORITHM ALWAYS
   ask turtles with [target-lane = -1 and xcor >= xcor-start-of-control-zone and xcor <= xcor-merging-point] [change-speed] ; ALGORITHM TO FOLLOW ON THE CONTROL ZONE
   ask turtles with [target-lane = -1 and xcor >= xcor-merging-point and xcor < xcor-end-of-merging-lane] [do-merging] ; MERGING ON THE CRITICAL ZONE
@@ -199,7 +204,6 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   let n (world-width - xcor)
   if (n < 0)[ set n 0]
   if debug [print(word "in-cone radius " n)]
-  ;let forward-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
   let forward-cars other turtles in-cone n 45 with [ycor = [ycor] of myself ] ; I find the set of forward cars
   set forward-car min-one-of forward-cars [xcor - [xcor] of myself] ; I keep only the nearest forward car
   let flag 0
@@ -220,31 +224,31 @@ to move-forward ; turtle procedure --> implementation of the tracking algorithm
   ;starting with the algorithm
 
   ifelse delta-x < delta-x-min
-  [ if debug [print(word "turtle " who " decrease speed delta-x < delta-x-min")]
+  [ ;if debug [print(word "turtle " who " decrease speed delta-x < delta-x-min")]
     decrease-speed
     update-position
-    if debug [print(word "the speed of turtle " who " is: " speed)
-                print(word "the position of turtle " who " is: " xcor) ]
+    ;if debug [print(word "the speed of turtle " who " is: " speed)
+    ;            print(word "the position of turtle " who " is: " xcor) ]
      ]
   [ ifelse forward-speed > speed
-    [ if debug [print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed > speed")]
+    [ ;if debug [print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed > speed")]
       increase-speed
       update-position
-     if debug [print(word "the speed of turtle " who " is: " speed)
-                print(word "the position of turtle " who " is: " xcor) ]
+     ;if debug [print(word "the speed of turtle " who " is: " speed)
+     ;          print(word "the position of turtle " who " is: " xcor) ]
     ]
     [ifelse equation self forward-car flag < delta-x-min ; con questa velocità riesco a frenare in tempo?
-      [ if debug [print(word "turtle " who " decrease speed because delta-x => delta-x-min but forward-speed <= speed and equation < delta-x-min ")]
-        decrease-speed
+      [ ;if debug [print(word "turtle " who " decrease speed because delta-x => delta-x-min but forward-speed <= speed and equation < delta-x-min ")]
+       decrease-speed
        update-position
-      if debug [print(word "the speed of turtle " who " is: " speed)
-                print(word "the position of turtle " who " is: " xcor) ]
+      ;if debug [print(word "the speed of turtle " who " is: " speed)
+      ;          print(word "the position of turtle " who " is: " xcor) ]
       ]
-      [if debug [ print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed <= speed and equation >= delta-x-min")]
+      [;if debug [ print(word "turtle " who " increase speed because delta-x => delta-x-min and forward-speed <= speed and equation >= delta-x-min")]
        increase-speed
        update-position
-      if debug [print(word "the speed of turtle " who " is: " speed)
-                print(word "the position of turtle " who " is: " xcor) ]
+      ;if debug [print(word "the speed of turtle " who " is: " speed)
+      ;         print(word "the position of turtle " who " is: " xcor) ]
       ]
     ]
   ]
@@ -260,7 +264,7 @@ to-report equation[A B flag]  ;refers to equation (9)
   [set ris (one + world-width - [xcor] of A + [xcor] of B - size) ]
   [set ris (one + [xcor] of B  - [xcor] of A - size) ]
 
-  if debug [print(word "result: "ris)]
+  ;if debug [print(word "result: "ris)]
   report (abs ris)
 end
 
@@ -290,12 +294,14 @@ to change-speed
   ifelse delta-x_s < delta-x_m
 
   [ ;increase-speed
-    ask associated-car [decrease-speed]
-  ]
- [  ;ask associated-car [increase-speed]
-    decrease-speed
-  ]
+    ask associated-car [decrease-speed] ]
+  [;ask associated-car [increase-speed]
+    decrease-speed ]
 end
+
+
+
+
 ; I this case the behaviour of second lane car depends on the main lane associated car
 ;to change-speed
 ;  let associated-cars other turtles in-cone world-width 190
@@ -370,11 +376,11 @@ end
 GRAPHICS-WINDOW
 220
 10
-1448
-359
+1435
+355
 -1
 -1
-20.0
+19.8
 1
 10
 1
@@ -445,27 +451,16 @@ NIL
 NIL
 0
 
-MONITOR
-10
-230
-215
-275
-mean speed
-mean [speed] of turtles
-2
-1
-11
-
 SLIDER
 10
-55
+50
 215
-88
+83
 number-of-cars-main-lane
 number-of-cars-main-lane
-0
-6
-4.0
+1
+8
+8.0
 1
 1
 NIL
@@ -473,9 +468,9 @@ HORIZONTAL
 
 SLIDER
 10
-125
+115
 215
-158
+148
 acceleration
 acceleration
 0.005
@@ -488,14 +483,14 @@ HORIZONTAL
 
 SLIDER
 10
-90
+80
 215
-123
+113
 number-of-cars-second-lane
 number-of-cars-second-lane
 0
 3
-1.0
+3.0
 1
 1
 NIL
@@ -503,9 +498,9 @@ HORIZONTAL
 
 SLIDER
 10
-160
+150
 215
-193
+183
 deceleration
 deceleration
 0.15
@@ -518,14 +513,32 @@ HORIZONTAL
 
 SWITCH
 10
-195
+185
 215
-228
+218
 debug
 debug
 1
 1
 -1000
+
+PLOT
+220
+360
+645
+535
+avarage speed on main lane
+NIL
+avarage speed
+0.0
+10.0
+0.0
+0.5
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -2064490 true "" "plot mean [ speed ] of turtles with [target-lane = 1]"
 
 @#$#@#$#@
 ## WHAT IS IT?
