@@ -15,14 +15,11 @@ globals [
 ]
 
 turtles-own [
-  speed         ; the current speed of the car
-  top-speed     ; the maximum speed of the car (different for all cars)
-  target-lane   ; the desired lane of the car 1 main, -1 secondary
-  patience      ; the driver's current level of patience
-  n-blocks      ; number of merging trial
-  forward-car   ; the forward car on the street
+  speed          ; the current speed of the car
+  top-speed      ; the maximum speed of the car
+  target-lane    ; the desired lane of the car 1 main, -1 secondary
+  forward-car    ; the forward car on the street
   associated-car ;the car on the main lane asocciated with me
-
 ]
 
 to setup
@@ -64,7 +61,6 @@ to create-or-remove-cars-main-lane
        set heading 90
        set top-speed 0.5
        set speed 0.3 + random-float 0.05
-       set n-blocks 0
        set forward-car nobody
     ]
     [  set number-of-cars-main-lane number-of-cars-main-lane - 1
@@ -90,7 +86,6 @@ to create-or-remove-cars-second-lane
        set heading 90
        set top-speed 0.5
        set speed 0.3 + random-float 0.05
-       set n-blocks 0
        set forward-car nobody
     ]
     [  set number-of-cars-second-lane number-of-cars-second-lane - 1
