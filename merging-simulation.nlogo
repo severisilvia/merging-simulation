@@ -1,5 +1,4 @@
 globals [
-
   lanes          ; a list of the y coordinates of different lanes
   number-of-lanes
   starting-number-of-cars
@@ -102,10 +101,7 @@ end
 
 to-report free [ road-patches ] ; turtle procedure
   let this-car self
-  report road-patches with [remainder pxcor delta-x-min = 0 and not any? turtles-here and not any? turtles-on neighbors ] ;and not any? turtles-here
-;  report road-patches with [
-;    not any? turtles-on patches with [ self != this-car and remainder pxcor 5 = 0] and not any? turtles-here   ; identifica correttamente le patches su cui posizionare le cars
-;  ]
+  report road-patches with [remainder pxcor delta-x-min = 0 and not any? turtles-here and not any? turtles-on neighbors ]
 end
 
 ;here I have to draw the merging between the two lanes
@@ -178,7 +174,6 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
 
 end
 
-;c'è un problema quando due agenti si associano alla stessa macchina, in quel caso l'algoritmo di tracking non è mantenuto
 
 to go
   create-or-remove-cars-second-lane
@@ -287,75 +282,10 @@ to change-speed
   if debug [print(word "x_m  : " delta-x_m)]
 
   ifelse delta-x_s < delta-x_m
-
-  [ ;increase-speed
-    ask associated-car [decrease-speed] ]
-  [;ask associated-car [increase-speed]
-    decrease-speed ]
+  [ ask associated-car [decrease-speed] ]
+  [ decrease-speed ]
 end
 
-
-
-
-; I this case the behaviour of second lane car depends on the main lane associated car
-;to change-speed
-;  let associated-cars other turtles in-cone world-width 190
-;  if debug [print(word "associated cars : " associated-cars)]
-;  let associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
-;  let delta-x_s xcor-merging-point - [xcor] of self
-;  let delta-x_m xcor-merging-point - [xcor] of associated-car
-;  if debug [print(word "association between " who " and " associated-car)]
-;  if debug [print(word "x_s  : " delta-x_s)]
-;  if debug [print(word "x_m  : " delta-x_m)]
-;
-;  ifelse delta-x_s < delta-x_m
-;
-;  [ increase-speed
-;    ;ask associated-car [decrease-speed]
-;  ]
-; [  ;ask associated-car [increase-speed]
-;    decrease-speed
-;  ]
-;end
-  ;  LIKE THE PAPER, IT DOESN'T WORK.
-;to change-speed
-;  let associated-cars other turtles in-cone world-width 190
-;  if debug [print(word "associated cars : " associated-cars)]
-;  let associated-car min-one-of associated-cars with [target-lane = 1] [ distance myself ]  ; I do the association whith the nearest vehice in the main lane
-;  let delta-x_s xcor-merging-point - [xcor] of self
-;  let delta-x_m xcor-merging-point - [xcor] of associated-car
-;  if debug [print(word "association between " who " and " associated-car)]
-;  if debug [print(word "x_s  : " delta-x_s)]
-;  if debug [print(word "x_m  : " delta-x_m)]
-;
-;  ifelse delta-x_s < delta-x_m
-;
-;  [ increase-speed
-;    ;ask associated-car [decrease-speed]
-;  ]
-; [  ask associated-car [increase-speed]
-;    ;decrease-speed
-;  ]
-;
-;end
-;to change-lane ; turtle procedure
-;  set heading 0
-;  let blocking-cars other turtles in-cone (delta-x-min) 180 with [abs (xcor - [xcor] of myself) <= delta-x-min]
-;  ;let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
-;  let blocking-car min-one-of blocking-cars [ distance myself ]
-;  ifelse blocking-car = nobody [
-;    forward 2
-;    set target-lane 1
-;    set n-blocks 0
-;  ] [
-;    slow-down-car
-;    slow-down-or-stop-car
-;    set n-blocks n-blocks + 1
-;    if debug [print(word "n-blocks of turtle " who " : " n-blocks)]
-;    if xcor >= (xcor-end-of-merging-lane - 2) [stop-car]
-;    if n-blocks >= 5 [stop-car]
-;  ]
-;end
 
 to do-merging
   set heading 0
