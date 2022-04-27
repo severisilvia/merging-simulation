@@ -13,4 +13,5 @@
   <li> Max number of cars on the main lane after some merging = initial number of cars on main lane + initial number of cars on secondary lane </li>
 </ul>
 
-![image](https://user-images.githubusercontent.com/63358083/164708017-96e30ca8-f923-4079-af70-44b69751219f.png)
+![image](https://user-images.githubusercontent.com/63358083/165498616-263310dd-881d-49d6-8cfd-a8801463ec7a.png)
+
