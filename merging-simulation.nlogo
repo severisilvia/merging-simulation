@@ -166,7 +166,7 @@ to draw-line [ y line-color kind ]  ; kind=1 upper lane, kind=0 and kind=-1 midd
       left 90
       forward number-of-lanes
       right 90
-      forward (world-width - xcor-end-of-merging-lane + 2)
+      forward (world-width - xcor-end-of-merging-lane + 1)
       pen-up
     ]
     die
